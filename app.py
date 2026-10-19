@@ -238,6 +238,42 @@ st.markdown(
         background: rgba(14, 37, 62, 0.58);
     }
 
+
+    /* Chat input: remove the white outer area */
+    [data-testid="stBottom"],
+    [data-testid="stBottom"] > div,
+    [data-testid="stChatInput"],
+    [data-testid="stChatInput"] > div {
+        background: #07182A !important;
+        background-color: #07182A !important;
+        box-shadow: none !important;
+    }
+
+    [data-testid="stChatInput"] {
+        border: 1px solid #C9A45C !important;
+        border-radius: 16px !important;
+        overflow: hidden !important;
+    }
+
+    [data-testid="stChatInput"] textarea {
+        background: #07182A !important;
+        color: #F2E8D5 !important;
+        -webkit-text-fill-color: #F2E8D5 !important;
+        caret-color: #D8B36A !important;
+    }
+
+    [data-testid="stChatInput"] textarea::placeholder {
+        color: #C8D2DF !important;
+        -webkit-text-fill-color: #C8D2DF !important;
+        opacity: 1 !important;
+    }
+
+    [data-testid="stChatInput"] button {
+        background: #C9A45C !important;
+        color: #07182A !important;
+        border: 1px solid #C9A45C !important;
+    }
+
     /* Chat input */
     [data-testid="stChatInput"],
     [data-testid="stChatInput"] > div {
