@@ -201,15 +201,19 @@ st.markdown(
         box-shadow: 0 0 18px rgba(217, 181, 109, 0.2);
     }
 
-    .stButton > button[kind="primary"] {
+    .stButton > button[kind="primary"],
+    .stButton [data-testid="stBaseButton-primary"] {
         background: linear-gradient(115deg, #B98B3F, #F0D69A);
         color: #07172A;
         border: 1px solid #F0D69A;
     }
 
-    .stButton > button[kind="primary"]:hover,
-    .stButton > button[kind="primary"]:focus,
-    .stButton > button[kind="primary"]:active {
+    .stButton > button[kind="primary"],
+    .stButton [data-testid="stBaseButton-primary"]:hover,
+    .stButton > button[kind="primary"],
+    .stButton [data-testid="stBaseButton-primary"]:focus,
+    .stButton > button[kind="primary"],
+    .stButton [data-testid="stBaseButton-primary"]:active {
         background: linear-gradient(115deg, #D0A75C, #FFE7AE) !important;
         color: #07172A !important;
         -webkit-text-fill-color: #07172A !important;
@@ -534,7 +538,6 @@ def render_home():
             type="primary",
             use_container_width=True,
             key="enter_guest",
-            help="Open the Savoy Club Guest Assistant",
         ):
             if not st.session_state.chats:
                 create_new_chat()
