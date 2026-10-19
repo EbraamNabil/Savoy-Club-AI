@@ -822,7 +822,9 @@ def render_guest():
 
                 except Exception as error:
                     # Keep technical details in the server log only.
-                    print(f"Guest chatbot error: {error}")
+                    import traceback
+                    print(f"Guest chatbot error: {error!r}")
+                    traceback.print_exc()
 
                     st.error(
                         "We couldn't process your question right now. "
