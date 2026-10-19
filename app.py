@@ -154,10 +154,18 @@ st.markdown(
     }
 
     .mode-icon {
-        font-size: 2rem;
         color: var(--gold);
-        line-height: 1.2;
-        margin-bottom: 0.35rem;
+        line-height: 1;
+        margin: 0 auto 0.55rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .mode-icon svg {
+        width: 38px;
+        height: 38px;
+        display: block;
     }
 
     .mode-title {
@@ -186,9 +194,10 @@ st.markdown(
     }
 
     .stButton > button:hover {
-        border-color: var(--gold-light);
-        background: #173653;
-        color: #FFFFFF;
+        border-color: var(--gold-light) !important;
+        background: #173653 !important;
+        color: #F2E8D5 !important;
+        -webkit-text-fill-color: #F2E8D5 !important;
         box-shadow: 0 0 18px rgba(217, 181, 109, 0.2);
     }
 
@@ -198,9 +207,13 @@ st.markdown(
         border: 1px solid #F0D69A;
     }
 
-    .stButton > button[kind="primary"]:hover {
-        background: linear-gradient(115deg, #D0A75C, #FFE7AE);
-        color: #07172A;
+    .stButton > button[kind="primary"]:hover,
+    .stButton > button[kind="primary"]:focus,
+    .stButton > button[kind="primary"]:active {
+        background: linear-gradient(115deg, #D0A75C, #FFE7AE) !important;
+        color: #07172A !important;
+        -webkit-text-fill-color: #07172A !important;
+        border-color: #FFE7AE !important;
     }
 
     /* Sidebar */
@@ -505,7 +518,7 @@ def render_home():
         st.markdown(
             """
             <div class="mode-card guest-card">
-                <div class="mode-icon">♧</div>
+                <div class="mode-icon" aria-label="Guest account"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="8" r="3.5" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M5 20c.5-4 3-6 7-6s6.5 2 7 6" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
                 <div class="mode-title">Guest Mode</div>
                 <div class="mode-description">
                     Ask about membership rules,<br>
@@ -533,7 +546,7 @@ def render_home():
         st.markdown(
             """
             <div class="mode-card">
-                <div class="mode-icon">▥</div>
+                <div class="mode-icon" aria-label="Staff dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3.5" y="4" width="17" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="1.7"/><path d="M7 15v-3m5 3V8m5 7v-5" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></div>
                 <div class="mode-title">Staff Mode</div>
                 <div class="mode-description">
                     Access analytics and insights<br>
