@@ -3,6 +3,7 @@
 
 import json
 import re
+import unicodedata
 
 from common.llm_provider import LLMProvider
 
@@ -28,18 +29,124 @@ Guest message:
     return language
 
 
+
+def _normalize_answer_text(value):
+    """Normalize text for conservative, exact option matching."""
+    value = unicodedata.normalize("NFKC", str(value)).casefold()
+    value = re.sub(r"[^\w\s]", " ", value, flags=re.UNICODE)
+    return " ".join(value.split())
+
+
+def _extract_unambiguous_night_count(answer):
+    """Extract one clearly written positive integer without an LLM call."""
+    text = unicodedata.normalize("NFKC", str(answer)).strip()
+
+    # Match numeric tokens, including negative values and decimal numbers.
+    tokens = re.findall(
+        r"(?<!\w)[+-]?\d+(?:[.,]\d+)?(?!\w)",
+        text,
+        flags=re.UNICODE,
+    )
+
+    # Multiple numbers or no number require the fallback resolver.
+    if len(tokens) != 1:
+        return None, False
+
+    token = tokens[0]
+
+    # Do not interpret decimals, negatives, or explicit positive signs locally.
+    if not token.isdigit():
+        return None, False
+
+    try:
+        value = int(token)
+    except ValueError:
+        return None, False
+
+    if value <= 0:
+        return None, True
+
+    return value, True
+
+
+
+_ARABIC_OPTION_LABELS = {
+    "Savoy": ["سافوي"],
+    "Royal Savoy": ["رويال سافوي"],
+    "Sierra": ["سييرا", "سيرا"],
+    "Garden View": ["إطلالة على الحديقة", "اطلالة على الحديقة"],
+    "Pool View": [
+        "إطلالة على حمام السباحة", "اطلالة على حمام السباحة",
+        "إطلالة على المسبح", "اطلالة على المسبح",
+    ],
+    "Sea View": ["إطلالة على البحر", "اطلالة على البحر"],
+    "Triple Garden View": ["غرفة ثلاثية بإطلالة على الحديقة"],
+    "Diplomatic Suite Garden": ["جناح دبلوماسي بإطلالة على الحديقة"],
+    "Diplomatic Suite Pool": ["جناح دبلوماسي بإطلالة على حمام السباحة"],
+    "Diplomatic Suite Sea": ["جناح دبلوماسي بإطلالة على البحر"],
+    "Presidential Suite": ["الجناح الرئاسي"],
+    "Royal Savoy Room": ["غرفة رويال سافوي"],
+    "Royal Junior Suite": ["جناح رويال جونيور"],
+    "Royal S Suite": ["جناح رويال إس", "جناح رويال اس"],
+    "Royal 2-Bedroom Suite": ["جناح رويال بغرفتي نوم"],
+    "Panoramic Suite": ["الجناح البانورامي"],
+    "Villa 2 or 3 Bedrooms": ["فيلا بغرفتي نوم أو ثلاث غرف نوم"],
+    "Villa 4, 5 or 6 Bedrooms": ["فيلا بأربع أو خمس أو ست غرف نوم"],
+    "Deluxe Garden": ["ديلوكس بإطلالة على الحديقة"],
+    "Deluxe Pool": ["ديلوكس بإطلالة على حمام السباحة"],
+    "Triple Garden": ["غرفة ثلاثية بإطلالة على الحديقة"],
+    "Triple Pool": ["غرفة ثلاثية بإطلالة على حمام السباحة"],
+    "Suite Garden": ["جناح بإطلالة على الحديقة"],
+    "Suite Pool": ["جناح بإطلالة على حمام السباحة"],
+    "Half Board": ["إقامة نصف شاملة"],
+    "Half Board Dine Around": ["إقامة نصف شاملة مع خيارات طعام متنوعة"],
+    "Full Board": ["إقامة كاملة"],
+    "E-Class - hard": ["إي كلاس هارد", "إي كلاس - هارد"],
+    "S Class": ["إس كلاس", "اس كلاس"],
+}
+
+
+def _normalize_option_text(value):
+    """Normalize Arabic and Latin text for exact alias matching."""
+    import unicodedata
+
+    value = unicodedata.normalize("NFKC", str(value)).casefold()
+    value = re.sub(r"[ًٌٍَُِّْـ]", "", value)
+    value = re.sub(r"[إأآا]", "ا", value)
+    value = re.sub(r"[ىي]", "ي", value)
+    value = re.sub(r"[^\w\s]", " ", value)
+    return " ".join(value.split())
+
+
+def _match_local_option(answer, options):
+    """Return a canonical option only when exactly one alias matches."""
+    normalized = _normalize_option_text(answer)
+    matches = []
+
+    for option in options:
+        aliases = [option] + _ARABIC_OPTION_LABELS.get(option, [])
+        if any(_normalize_option_text(alias) == normalized for alias in aliases):
+            matches.append(option)
+
+    return matches[0] if len(matches) == 1 else None
+
 def resolve_guest_answer(llm, answer, field, options=None):
     """
-    Map an answer in any language to a canonical option or a night count.
+    Resolve clear answers locally and use the LLM for ambiguous answers.
 
-    For hotel, room_type, and meal_plan, the result must match one
-    of the supplied options exactly.
-    For nights, the result must be a positive integer.
+    Canonical option values are always returned unchanged.
     """
-
     options = options or []
 
+    if field not in ("hotel", "room_type", "meal_plan", "nights"):
+        raise ValueError(f"Unsupported field: {field}")
+
+    # Fast path: extract a single unambiguous numeric night count locally.
     if field == "nights":
+        value, was_unambiguous = _extract_unambiguous_night_count(answer)
+        if was_unambiguous:
+            return value
+
         prompt = f"""
 Extract the number of nights from the guest's answer.
 
@@ -57,8 +164,10 @@ Guest answer:
 {answer}
 """
     else:
-        if field not in ("hotel", "room_type", "meal_plan"):
-            raise ValueError(f"Unsupported field: {field}")
+        # Fast path: match the answer to an exact canonical option or known alias.
+        local_match = _match_local_option(answer, options)
+        if local_match is not None:
+            return local_match
 
         prompt = f"""
 Match the guest's answer to exactly one canonical option.
@@ -103,17 +212,14 @@ Guest answer:
     if field == "nights":
         if isinstance(value, bool):
             return None
-
         if isinstance(value, int) and value > 0:
             return value
-
         return None
 
     if isinstance(value, str) and value in options:
         return value
 
     return None
-
 
 def generate_guest_message(llm, language, message):
     """Express a supplied message in the guest's language."""

@@ -25,10 +25,74 @@ FIELD_LABELS = {
 }
 
 
-def _translate_question_and_options(llm, language, field, options):
-    """Translate a question and its choices while preserving option IDs."""
 
-    prompt = f"""
+def _translate_question_and_options(llm, language, field, options):
+    """Use local English/Arabic templates and Gemini for other languages."""
+
+    language_key = str(language).strip().casefold()
+
+    english_names = {
+        "english", "en", "english (us)", "english (uk)"
+    }
+    arabic_names = {
+        "arabic", "ar", "العربية", "عربي", "اللغة العربية"
+    }
+
+    if language_key in english_names:
+        questions = {
+            "hotel": "Which hotel are you staying at?",
+            "room_type": "Which room type are you staying in?",
+            "meal_plan": "Which meal plan do you have?",
+            "nights": "How many nights did you stay?",
+        }
+        labels = list(options)
+
+    elif language_key in arabic_names:
+        questions = {
+            "hotel": "في أي فندق تقيم؟",
+            "room_type": "ما نوع الغرفة التي تقيم فيها؟",
+            "meal_plan": "ما نظام الوجبات الخاص بحجزك؟",
+            "nights": "كم ليلة أقمت؟",
+        }
+
+        # Translate labels for display only; canonical option values remain unchanged.
+        arabic_labels = {
+            "Savoy": "سافوي",
+            "Royal Savoy": "رويال سافوي",
+            "Sierra": "سييرا",
+            "Garden View": "إطلالة على الحديقة",
+            "Pool View": "إطلالة على حمام السباحة",
+            "Sea View": "إطلالة على البحر",
+            "Triple Garden View": "غرفة ثلاثية بإطلالة على الحديقة",
+            "Diplomatic Suite Garden": "جناح دبلوماسي بإطلالة على الحديقة",
+            "Diplomatic Suite Pool": "جناح دبلوماسي بإطلالة على حمام السباحة",
+            "Diplomatic Suite Sea": "جناح دبلوماسي بإطلالة على البحر",
+            "Presidential Suite": "الجناح الرئاسي",
+            "Royal Savoy Room": "غرفة رويال سافوي",
+            "Royal Junior Suite": "جناح رويال جونيور",
+            "Royal S Suite": "جناح رويال S",
+            "Royal 2-Bedroom Suite": "جناح رويال بغرفتي نوم",
+            "Panoramic Suite": "الجناح البانورامي",
+            "Villa 2 or 3 Bedrooms": "فيلا بغرفتي نوم أو ثلاث غرف نوم",
+            "Villa 4, 5 or 6 Bedrooms": "فيلا بأربع أو خمس أو ست غرف نوم",
+            "Deluxe Garden": "ديلوكس بإطلالة على الحديقة",
+            "Deluxe Pool": "ديلوكس بإطلالة على حمام السباحة",
+            "Triple Garden": "غرفة ثلاثية بإطلالة على الحديقة",
+            "Triple Pool": "غرفة ثلاثية بإطلالة على حمام السباحة",
+            "Suite Garden": "جناح بإطلالة على الحديقة",
+            "Suite Pool": "جناح بإطلالة على حمام السباحة",
+            "Half Board": "إقامة نصف شاملة",
+            "Half Board Dine Around": "إقامة نصف شاملة مع خيارات طعام متنوعة",
+            "Full Board": "إقامة كاملة",
+            "E-Class - hard": "E-Class - Hard",
+            "S Class": "S Class",
+        }
+
+        labels = [arabic_labels.get(option, option) for option in options]
+
+    else:
+        # Preserve multilingual support through the existing Gemini fallback.
+        prompt = f"""
 Prepare a guest-facing question in {language}.
 
 Return valid JSON only:
@@ -51,31 +115,42 @@ Source options:
 Question intent:
 Ask the guest to select or provide their {FIELD_LABELS[field]}.
 """
+        raw = llm.generate_response(prompt).strip()
+        match = re.search(r"\{.*\}", raw, flags=re.DOTALL)
 
-    raw = llm.generate_response(prompt).strip()
-    match = re.search(r"\{.*\}", raw, flags=re.DOTALL)
+        if not match:
+            raise ValueError("Could not format the translated question.")
 
-    if not match:
-        raise ValueError("Could not format the translated question.")
+        data = json.loads(match.group(0))
+        translated_options = data.get("options")
 
-    data = json.loads(match.group(0))
-    translated_options = data.get("options")
+        if not isinstance(data.get("question"), str):
+            raise ValueError("The translated question is invalid.")
 
-    if not isinstance(data.get("question"), str):
-        raise ValueError("The translated question is invalid.")
+        if not isinstance(translated_options, list):
+            raise ValueError("The translated options are invalid.")
 
-    if not isinstance(translated_options, list):
-        raise ValueError("The translated options are invalid.")
+        if len(translated_options) != len(options):
+            raise ValueError("The number of translated options changed.")
 
-    if len(translated_options) != len(options):
-        raise ValueError("The number of translated options changed.")
+        for index, item in enumerate(translated_options, start=1):
+            if (
+                not isinstance(item, dict)
+                or item.get("id") != index
+                or not isinstance(item.get("label"), str)
+            ):
+                raise ValueError(
+                    "The translated options do not match the source list."
+                )
 
-    for index, item in enumerate(translated_options, start=1):
-        if item.get("id") != index or not isinstance(item.get("label"), str):
-            raise ValueError("The translated options do not match the source list.")
+        return data["question"], translated_options
 
-    return data["question"], translated_options
+    translated_options = [
+        {"id": index, "label": label}
+        for index, label in enumerate(labels, start=1)
+    ]
 
+    return questions[field], translated_options
 
 def start_multilingual_points_flow(llm, initial_message):
     """Start a points flow and ask the first question in the guest's language."""
