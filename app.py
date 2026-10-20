@@ -4,6 +4,40 @@ import streamlit as st
 
 from config import PROJECT_ROOT
 from guest_mode.chatbot import get_guest_chatbot
+from common.llm_provider import LLMProvider
+from guest_mode.points_multilingual_flow import (
+    start_multilingual_points_flow,
+    process_multilingual_points_answer,
+)
+import re
+
+
+
+def is_points_calculation_request(message):
+    """Identify explicit Award Points calculation requests."""
+    text = message.casefold().strip()
+
+    patterns = [
+        r"calculate.*points",
+        r"calculat(e|ion).*award points",
+        r"how many points",
+        r"points calculator",
+        r"estimate.*points",
+        r"calcola.*punti",
+        r"quanti punti",
+        r"calcular.*puntos",
+        r"cu[aá]ntos puntos",
+        r"combien de points",
+        r"wie viele punkte",
+        r"احسب.*نقاط",
+        r"حساب.*نقاط",
+        r"كم.*نقطة",
+        r"كم.*نقاط",
+        r"عدد.*نقاط",
+        r"نقاط.*إقامتي",
+    ]
+
+    return any(re.search(pattern, text) for pattern in patterns)
 
 
 # ---------------------------------------------------------
@@ -394,6 +428,7 @@ def create_new_chat():
         "id": str(uuid.uuid4()),
         "title": "New conversation",
         "messages": [],
+        "points_flow": None,
     }
 
     st.session_state.chats.insert(0, chat)
@@ -703,6 +738,7 @@ def render_guest():
             key="clear_chat",
         ):
             chat["messages"] = []
+            chat["points_flow"] = None
             chat["title"] = "New conversation"
             st.rerun()
 
@@ -793,11 +829,53 @@ def render_guest():
                 "Reviewing the official Savoy Club policy..."
             ):
                 try:
-                    chatbot = get_guest_chatbot()
-                    result = chatbot.answer_question(question)
+                    # Continue an existing points conversation first.
+                    if chat.get("points_flow") is not None:
+                        llm = LLMProvider()
+                        outcome = process_multilingual_points_answer(
+                            llm,
+                            chat["points_flow"],
+                            question,
+                        )
 
-                    answer = result["answer"]
-                    sources = result["sources"]
+                        if outcome.get("complete"):
+                            answer = outcome.get(
+                                "message",
+                                "The points calculation is complete.",
+                            )
+                            chat["points_flow"] = None
+                        else:
+                            parts = []
+
+                            if outcome.get("message"):
+                                parts.append(outcome["message"])
+
+                            if outcome.get("question"):
+                                parts.append(outcome["question"])
+
+                            answer = "\n\n".join(parts)
+
+                        sources = []
+
+                    # Start the calculator only for explicit calculation requests.
+                    elif is_points_calculation_request(question):
+                        llm = LLMProvider()
+                        outcome = start_multilingual_points_flow(
+                            llm,
+                            question,
+                        )
+
+                        chat["points_flow"] = outcome["flow"]
+                        answer = outcome["question"]
+                        sources = []
+
+                    # Keep all other questions on the existing policy RAG path.
+                    else:
+                        chatbot = get_guest_chatbot()
+                        result = chatbot.answer_question(question)
+
+                        answer = result["answer"]
+                        sources = result["sources"]
 
                     st.markdown(answer)
 
