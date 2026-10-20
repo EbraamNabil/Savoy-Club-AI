@@ -904,17 +904,27 @@ def render_guest():
                     print(f"Guest chatbot error: {error!r}")
                     traceback.print_exc()
 
-                    st.error(
-                        "We couldn't process your question right now. "
-                        "Please try again later."
-                    )
+                    error_text = repr(error).casefold()
+                    if (
+                        "503" in error_text
+                        or "unavailable" in error_text
+                        or "high demand" in error_text
+                    ):
+                        friendly_error = (
+                            "The AI service is temporarily busy. "
+                            "Please try your question again in a minute."
+                        )
+                    else:
+                        friendly_error = (
+                            "We couldn't process your question right now. "
+                            "Please try again later."
+                        )
+
+                    st.warning(friendly_error)
 
                     chat["messages"].append({
                         "role": "assistant",
-                        "content": (
-                            "We couldn't process your question right now. "
-                            "Please try again later."
-                        ),
+                        "content": friendly_error,
                         "sources": [],
                     })
 
