@@ -1,51 +1,65 @@
+
 from dotenv import load_dotenv
-from google import genai
+from openai import OpenAI
 
 from config import (
-    GOOGLE_API_KEY,
-    GOOGLE_MODEL,
     LLM_PROVIDER,
     PROJECT_ROOT,
+    GROQ_API_KEY,
+    GROQ_MODEL,
 )
 
-
-# Load environment variables from the project configuration
 load_dotenv(PROJECT_ROOT / ".env", override=True)
 
 
 class LLMProvider:
-    """Provide a reusable interface for supported language models."""
+    """Provide a reusable interface for the configured language model."""
 
     def __init__(self):
-        # Validate the selected provider
-        if LLM_PROVIDER.lower() != "google":
-            raise ValueError(
-                f"Unsupported LLM provider: {LLM_PROVIDER}"
-            )
+        self.provider = LLM_PROVIDER.lower()
 
-        # Ensure the API key is available without displaying it
-        if not GOOGLE_API_KEY:
-            raise ValueError(
-                "GOOGLE_API_KEY is missing. Check the project's .env file."
-            )
+        if self.provider == "groq":
+            if not GROQ_API_KEY:
+                raise ValueError(
+                    "GROQ_API_KEY is missing. Configure it in "
+                    "Streamlit secrets or environment variables."
+                )
 
-        # Initialize the Gemini client
-        self.client = genai.Client(api_key=GOOGLE_API_KEY)
-        self.model_name = GOOGLE_MODEL
+            self.client = OpenAI(
+                api_key=GROQ_API_KEY,
+                base_url="https://api.groq.com/openai/v1",
+            )
+            self.model_name = GROQ_MODEL
+
+        else:
+            raise ValueError(
+                f"Unsupported LLM provider: {self.provider}. "
+                "This deployment currently supports groq."
+            )
 
     def generate_response(self, prompt: str) -> str:
-        """Generate a text response from the configured model."""
+        """Generate a text response from Groq."""
 
-        # Send the prompt to Gemini
-        response = self.client.models.generate_content(
+        response = self.client.chat.completions.create(
             model=self.model_name,
-            contents=prompt,
+            messages=[
+                {
+                    "role": "system",
+                    "content": (
+                        "You are a helpful Savoy Club assistant. "
+                        "Answer clearly using the provided context. "
+                        "Never invent hotel policies."
+                    ),
+                },
+                {"role": "user", "content": prompt},
+            ],
+            max_tokens=512,
+            temperature=0.2,
         )
 
-        # Return the generated text when available
-        answer = response.text
+        answer = response.choices[0].message.content
 
-        if not answer:
+        if not answer or not answer.strip():
             raise RuntimeError(
                 "The language model returned an empty response."
             )
