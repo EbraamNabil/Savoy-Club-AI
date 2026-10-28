@@ -28,28 +28,51 @@ POINTS_BALANCE_MESSAGE = (
 
 
 def is_points_balance_inquiry(question: str) -> bool:
-    """Detect requests for a member's existing points balance."""
+    """Detect requests about an existing SAVOY Club points balance."""
     text = question.casefold()
-
-    patterns = [
-        r"\bpoint balance\b",
-        r"\bpoints balance\b",
-        r"\baccount balance\b",
-        r"\bbalance of my points\b",
-        r"\bhow many points do i have\b",
-        r"\bcheck my points\b",
-        r"\bmy points balance\b",
-        r"\bرصيد النقاط\b",
-        r"\رصيدي\b",
-        r"\bرصيدى\b",
-        r"\bكم نقطة عندي\b",
-        r"\bكام نقطة عندي\b",
-        r"\bбаланс баллов\b",
-        r"\bsolde de points\b",
-        r"\bsaldo punti\b",
+    phrases = [
+        "point balance",
+        "points balance",
+        "account balance",
+        "balance of my points",
+        "how many points do i have",
+        "check my points",
+        "my points balance",
+        "رصيد النقاط",
+        "رصيدي",
+        "رصيدى",
+        "كم نقطة عندي",
+        "كام نقطة عندي",
+        "баланс баллов",
+        "solde de points",
+        "saldo punti",
     ]
+    return any(phrase in text for phrase in phrases)
 
-    return any(re.search(pattern, text) for pattern in patterns)
+
+def is_points_calculation_request(question: str) -> bool:
+    """Detect requests to calculate or estimate award points."""
+    text = question.casefold()
+    phrases = [
+        "calculate points",
+        "calculate my points",
+        "calculate award points",
+        "how many points will i earn",
+        "how many award points",
+        "estimate my points",
+        "points calculator",
+        "calculate the points",
+        "احسب النقاط",
+        "احسب نقاط",
+        "حساب النقاط",
+        "حساب نقاط المكافآت",
+        "عايز احسب النقاط",
+        "عايز أعرف هكسب كام نقطة",
+        "عايز اعرف هكسب كام نقطة",
+        "كم نقطة سأكسب",
+        "كم نقطة هكسب",
+    ]
+    return any(phrase in text for phrase in phrases)
 
 
 # ---------------------------------------------------------
@@ -832,82 +855,57 @@ def render_guest():
                 "Reviewing the official Savoy Club policy..."
             ):
                 try:
-                   
-                        # Handle existing account-balance inquiries directly.
-                        if is_points_balance_inquiry(question):
-                            answer = POINTS_BALANCE_MESSAGE
-                            sources = []
-                            chat["points_flow"] = None
-                        
-                        # Continue an existing points conversation.
-                        elif chat.get("points_flow") is not None:
-                            llm = LLMProvider()
-                            outcome = process_multilingual_points_answer(
-                                llm,
-                                chat["points_flow"],
-                                question,
-                            )
-                        
-                            if outcome.get("complete"):
-                                answer = outcome.get(
-                                    "message",
-                                    "The points calculation is complete.",
-                                )
-                                chat["points_flow"] = None
-                            else:
-                                parts = []
-                        
-                                if outcome.get("message"):
-                                    parts.append(outcome["message"])
-                        
-                                if outcome.get("question"):
-                                    parts.append(outcome["question"])
-                        
-                                answer = "\n\n".join(parts)
-                        
-                            sources = []
-                        
-                        # Keep your existing calculation and policy branches below.
+                    # Handle existing account-balance inquiries directly.
+                    if is_points_balance_inquiry(question):
+                        answer = POINTS_BALANCE_MESSAGE
+                        sources = []
+                        chat["points_flow"] = None
+
+                    # Continue an existing points calculation.
+                    elif chat.get("points_flow") is not None:
+                        llm = LLMProvider()
+                        outcome = process_multilingual_points_answer(
+                            llm,
+                            chat["points_flow"],
+                            question,
                         )
+
+                        if outcome.get("complete"):
+                            answer = outcome.get(
+                                "message",
+                                "The points calculation is complete.",
+                            )
                             chat["points_flow"] = None
                         else:
                             parts = []
-
                             if outcome.get("message"):
                                 parts.append(outcome["message"])
-
                             if outcome.get("question"):
                                 parts.append(outcome["question"])
-
                             answer = "\n\n".join(parts)
 
                         sources = []
 
-                    # Start the calculator only for explicit calculation requests.
+                    # Start a new points calculation.
                     elif is_points_calculation_request(question):
                         llm = LLMProvider()
                         outcome = start_multilingual_points_flow(
                             llm,
                             question,
                         )
-
                         chat["points_flow"] = outcome["flow"]
-                        answer = outcome["question"]
+                        answer = outcome.get("question", "")
                         sources = []
 
-                    # Keep all other questions on the existing policy RAG path.
+                    # Use policy RAG for all other questions.
                     else:
                         chatbot = get_guest_chatbot()
                         result = chatbot.answer_question(question)
-
-                        answer = result["answer"]
-                        sources = result["sources"]
+                        answer = result.get("answer", "")
+                        # Keep source details out of the guest-facing chat.
+                        sources = []
 
                     st.markdown(answer)
-
-                    
-                    
-
                     chat["messages"].append({
                         "role": "assistant",
                         "content": answer,
