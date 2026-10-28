@@ -13,28 +13,40 @@ import re
 
 
 
-def is_points_calculation_request(message):
-    """Identify explicit Award Points calculation requests."""
-    text = message.casefold().strip()
+POINTS_BALANCE_MESSAGE = (
+    "For any inquiries about **SAVOY Club**, points collection, "
+    "redemption, or your account balance, please contact us at "
+    "**Ext. 8080** from inside the hotel or "
+    "**+20 69 360 2500 (Ext. 2)** from outside.\n\n"
+    "You can also visit the **SAVOY Club Desk daily from "
+    "10:00 AM to 6:00 PM** for personalized assistance.\n\n"
+    "For more information, visit "
+    "[www.savoy-sharm.com/savoy-club/]"
+    "(http://www.savoy-sharm.com/savoy-club/) or email "
+    "**SavoyClub@savoy-sharm.com**."
+)
+
+
+def is_points_balance_inquiry(question: str) -> bool:
+    """Detect requests for a member's existing points balance."""
+    text = question.casefold()
 
     patterns = [
-        r"calculate.*points",
-        r"calculat(e|ion).*award points",
-        r"how many points",
-        r"points calculator",
-        r"estimate.*points",
-        r"calcola.*punti",
-        r"quanti punti",
-        r"calcular.*puntos",
-        r"cu[aá]ntos puntos",
-        r"combien de points",
-        r"wie viele punkte",
-        r"احسب.*نقاط",
-        r"حساب.*نقاط",
-        r"كم.*نقطة",
-        r"كم.*نقاط",
-        r"عدد.*نقاط",
-        r"نقاط.*إقامتي",
+        r"\bpoint balance\b",
+        r"\bpoints balance\b",
+        r"\baccount balance\b",
+        r"\bbalance of my points\b",
+        r"\bhow many points do i have\b",
+        r"\bcheck my points\b",
+        r"\bmy points balance\b",
+        r"\bرصيد النقاط\b",
+        r"\رصيدي\b",
+        r"\bرصيدى\b",
+        r"\bكم نقطة عندي\b",
+        r"\bكام نقطة عندي\b",
+        r"\bбаланс баллов\b",
+        r"\bsolde de points\b",
+        r"\bsaldo punti\b",
     ]
 
     return any(re.search(pattern, text) for pattern in patterns)
