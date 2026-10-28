@@ -801,16 +801,7 @@ def render_guest():
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-            if message["role"] == "assistant" and message.get("sources"):
-                with st.expander("View policy sources"):
-                    for source in message["sources"]:
-                        page = source.get("page")
-                        page_label = (
-                            f"Page {page}"
-                            if page is not None
-                            else "Page unavailable"
-                        )
-                        st.write(f"{source['source']} — {page_label}")
+            
 
     pending_question = chat.pop("pending_question", None)
 
@@ -891,18 +882,8 @@ def render_guest():
 
                     st.markdown(answer)
 
-                    if sources:
-                        with st.expander("View policy sources"):
-                            for source in sources:
-                                page = source.get("page")
-                                page_label = (
-                                    f"Page {page}"
-                                    if page is not None
-                                    else "Page unavailable"
-                                )
-                                st.write(
-                                    f"{source['source']} — {page_label}"
-                                )
+                    
+                    
 
                     chat["messages"].append({
                         "role": "assistant",
