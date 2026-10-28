@@ -832,20 +832,43 @@ def render_guest():
                 "Reviewing the official Savoy Club policy..."
             ):
                 try:
-                    # Continue an existing points conversation first.
-                    if chat.get("points_flow") is not None:
-                        llm = LLMProvider()
-                        outcome = process_multilingual_points_answer(
-                            llm,
-                            chat["points_flow"],
-                            question,
-                        )
-
-                        if outcome.get("complete"):
-                            answer = outcome.get(
-                                "message",
-                                "The points calculation is complete.",
+                   
+                        # Handle existing account-balance inquiries directly.
+                        if is_points_balance_inquiry(question):
+                            answer = POINTS_BALANCE_MESSAGE
+                            sources = []
+                            chat["points_flow"] = None
+                        
+                        # Continue an existing points conversation.
+                        elif chat.get("points_flow") is not None:
+                            llm = LLMProvider()
+                            outcome = process_multilingual_points_answer(
+                                llm,
+                                chat["points_flow"],
+                                question,
                             )
+                        
+                            if outcome.get("complete"):
+                                answer = outcome.get(
+                                    "message",
+                                    "The points calculation is complete.",
+                                )
+                                chat["points_flow"] = None
+                            else:
+                                parts = []
+                        
+                                if outcome.get("message"):
+                                    parts.append(outcome["message"])
+                        
+                                if outcome.get("question"):
+                                    parts.append(outcome["question"])
+                        
+                                answer = "\n\n".join(parts)
+                        
+                            sources = []
+                        
+                        # Keep your existing calculation and policy branches below.
+                        )
                             chat["points_flow"] = None
                         else:
                             parts = []
