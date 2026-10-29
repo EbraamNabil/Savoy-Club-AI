@@ -242,6 +242,29 @@ class GuestChatbot:
 
         # Generate the answer using the configured language model
         answer = self.llm.generate_response(prompt)
+        normalized_answer = answer.casefold()
+
+        # Normalize explicit "not enough policy information" responses.
+        unsupported_phrases = (
+            "do not contain any information",
+            "does not contain enough information",
+            "do not contain enough information",
+            "unable to answer your question based on",
+            "unable to answer based on the available",
+            "insufficient to answer the question",
+            "not enough information to answer",
+            "لا توجد معلومات كافية للإجابة",
+            "لا تتضمن المعلومات المتاحة",
+        )
+
+        if (
+            answer.strip() == "__SAVOY_POLICY_NOT_FOUND__"
+            or any(phrase in normalized_answer for phrase in unsupported_phrases)
+        ):
+            return {
+                "answer": "__SAVOY_POLICY_NOT_FOUND__",
+                "sources": [],
+            }
 
         # Return the answer and unique source references
         sources = []
