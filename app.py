@@ -897,10 +897,11 @@ def render_guest():
                             question,
                         )
 
-                        chat["points_flow"] = outcome["flow"]
                         if outcome["complete"]:
                             answer = outcome["message"]
+                            chat["points_flow"] = None
                         else:
+                            chat["points_flow"] = outcome["flow"]
                             answer = outcome["question"]
                         sources = []
 
