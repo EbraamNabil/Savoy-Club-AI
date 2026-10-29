@@ -13,66 +13,67 @@ import re
 
 
 
-POINTS_BALANCE_MESSAGE = (
-    "For any inquiries about **SAVOY Club**, points collection, "
-    "redemption, or your account balance, please contact us at "
-    "**Ext. 8080** from inside the hotel or "
-    "**+20 69 360 2500 (Ext. 2)** from outside.\n\n"
-    "You can also visit the **SAVOY Club Desk daily from "
-    "10:00 AM to 6:00 PM** for personalized assistance.\n\n"
-    "For more information, visit "
-    "[www.savoy-sharm.com/savoy-club/]"
-    "(http://www.savoy-sharm.com/savoy-club/) or email "
-    "**SavoyClub@savoy-sharm.com**."
-)
+POLICY_NOT_FOUND = """I’m sorry, but I couldn’t find the information you’re looking for. 😊
+
+For further assistance, our friendly **SAVOY Club team** will be happy to help you!
+
+- **From inside the hotel:** Call Ext. 8080.
+- **From outside the hotel:** Call +20 69 360 2500 (Ext. 2).
+- **Visit us:** The SAVOY Club Desk is open daily from 10:00 AM to 6:00 PM.
+- **Website:** [www.savoy-sharm.com/savoy-club/](http://www.savoy-sharm.com/savoy-club/)
+- **Email:** [SavoyClub@savoy-sharm.com](mailto:SavoyClub@savoy-sharm.com)
+
+We’ll be delighted to assist you and make your SAVOY Club experience as enjoyable as possible! ✨"""
 
 
-def is_points_balance_inquiry(question: str) -> bool:
-    """Detect requests about an existing SAVOY Club points balance."""
-    text = question.casefold()
-    phrases = [
-        "point balance",
-        "points balance",
-        "account balance",
-        "balance of my points",
-        "how many points do i have",
-        "check my points",
-        "my points balance",
-        "رصيد النقاط",
-        "رصيدي",
-        "رصيدى",
-        "كم نقطة عندي",
-        "كام نقطة عندي",
-        "баланс баллов",
-        "solde de points",
-        "saldo punti",
+def is_points_account_support_request(message):
+    """Detect account balance, collecting, or redeeming points questions."""
+    text = str(message).casefold()
+    patterns = [
+        r"points?\s+balance", r"balance\s+of\s+my\s+points", r"my\s+points",
+        r"redeem(?:ing|ption)?\s+points?", r"collect(?:ing)?\s+points?",
+        r"points?\s+(?:collection|redemption)", r"رصيد\s+النقاط", r"رصيد\s+نقاطي",
+        r"استبدال\s+النقاط", r"تجميع\s+النقاط", r"تحصيل\s+النقاط",
+        r"punti\s+(?:saldo|raccolta|riscatto)", r"solde\s+de\s+points",
     ]
-    return any(phrase in text for phrase in phrases)
+    return any(re.search(pattern, text) for pattern in patterns)
 
 
-def is_points_calculation_request(question: str) -> bool:
-    """Detect requests to calculate or estimate award points."""
-    text = question.casefold()
-    phrases = [
-        "calculate points",
-        "calculate my points",
-        "calculate award points",
-        "how many points will i earn",
-        "how many award points",
-        "estimate my points",
-        "points calculator",
-        "calculate the points",
-        "احسب النقاط",
-        "احسب نقاط",
-        "حساب النقاط",
-        "حساب نقاط المكافآت",
-        "عايز احسب النقاط",
-        "عايز أعرف هكسب كام نقطة",
-        "عايز اعرف هكسب كام نقطة",
-        "كم نقطة سأكسب",
-        "كم نقطة هكسب",
+def points_account_support_message():
+    return """For points balance, collection, redemption, or account assistance, our friendly **SAVOY Club team** will be happy to help.
+
+- **From inside the hotel:** Call Ext. 8080.
+- **From outside the hotel:** Call +20 69 360 2500 (Ext. 2).
+- **Visit us:** The SAVOY Club Desk is open daily from 10:00 AM to 6:00 PM.
+- **Website:** [www.savoy-sharm.com/savoy-club/](http://www.savoy-sharm.com/savoy-club/)
+- **Email:** [SavoyClub@savoy-sharm.com](mailto:SavoyClub@savoy-sharm.com)"""
+
+
+def is_points_calculation_request(message):
+    """Identify explicit Award Points calculation requests."""
+    text = message.casefold().strip()
+
+    patterns = [
+        r"calculate.*points",
+        r"calculat(e|ion).*award points",
+        r"how many points",
+        r"points calculator",
+        r"estimate.*points",
+        r"calcola.*punti",
+        r"quanti punti",
+        r"calcular.*puntos",
+        r"cu[aá]ntos puntos",
+        r"combien de points",
+        r"wie viele punkte",
+        r"احسب.*نقاط",
+        r"حساب.*نقاط",
+        r"كم.*نقطة",
+        r"كم.*نقاط",
+        r"عدد.*نقاط",
+        r"نقاط.*إقامتي",
     ]
-    return any(phrase in text for phrase in phrases)
+
+    return any(re.search(pattern, text) for pattern in patterns)
 
 
 # ---------------------------------------------------------
@@ -824,7 +825,6 @@ def render_guest():
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-            
 
     pending_question = chat.pop("pending_question", None)
 
@@ -855,13 +855,13 @@ def render_guest():
                 "Reviewing the official Savoy Club policy..."
             ):
                 try:
-                    # Handle existing account-balance inquiries directly.
-                    if is_points_balance_inquiry(question):
-                        answer = POINTS_BALANCE_MESSAGE
+                    # Account-specific points support uses the approved contact details.
+                    if is_points_account_support_request(question):
+                        answer = points_account_support_message()
                         sources = []
                         chat["points_flow"] = None
 
-                    # Continue an existing points calculation.
+                    # Continue an existing points conversation first.
                     elif chat.get("points_flow") is not None:
                         llm = LLMProvider()
                         outcome = process_multilingual_points_answer(
@@ -878,34 +878,42 @@ def render_guest():
                             chat["points_flow"] = None
                         else:
                             parts = []
+
                             if outcome.get("message"):
                                 parts.append(outcome["message"])
+
                             if outcome.get("question"):
                                 parts.append(outcome["question"])
+
                             answer = "\n\n".join(parts)
 
                         sources = []
 
-                    # Start a new points calculation.
+                    # Start the calculator only for explicit calculation requests.
                     elif is_points_calculation_request(question):
                         llm = LLMProvider()
                         outcome = start_multilingual_points_flow(
                             llm,
                             question,
                         )
+
                         chat["points_flow"] = outcome["flow"]
-                        answer = outcome.get("question", "")
+                        answer = outcome["question"]
                         sources = []
 
-                    # Use policy RAG for all other questions.
+                    # Keep all other questions on the existing policy RAG path.
                     else:
                         chatbot = get_guest_chatbot()
                         result = chatbot.answer_question(question)
-                        answer = result.get("answer", "")
-                        # Keep source details out of the guest-facing chat.
+
+                        answer = result["answer"]
                         sources = []
+                        if answer.strip() == "__SAVOY_POLICY_NOT_FOUND__":
+                            answer = POLICY_NOT_FOUND
 
                     st.markdown(answer)
+
+
                     chat["messages"].append({
                         "role": "assistant",
                         "content": answer,

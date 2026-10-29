@@ -4,6 +4,8 @@
 import json
 import re
 
+from guest_mode.points_calculator import ROOM_POINTS, MEAL_POINTS
+
 from guest_mode.points_flow import (
     new_points_flow,
     get_missing_field,
@@ -152,113 +154,58 @@ Ask the guest to select or provide their {FIELD_LABELS[field]}.
 
     return questions[field], translated_options
 
-def start_multilingual_points_flow(llm, initial_message):
-    """Start a points flow and ask the first question in the guest's language."""
+def _extract_explicit_fields(llm, flow, message):
+    """Extract only fields clearly stated by the guest; validate against canonical options."""
+    hotels = list(ROOM_POINTS.keys())
+    room_options = {hotel: list(ROOM_POINTS[hotel].keys()) for hotel in hotels}
+    meal_options = {hotel: list(MEAL_POINTS.get(hotel, {}).keys()) for hotel in hotels}
+    prompt = f"""Extract booking details explicitly stated in this guest message.
+Return JSON only with keys hotel, room_type, meal_plan, nights.
+Use null for any field not clearly stated. Do not guess or fill missing information.
+For hotel, room_type, and meal_plan, values must exactly match the allowed canonical values below.
+For nights, return a positive whole-number integer or null. Ignore numbers that are part of room names.
+A room type must belong to the selected hotel. A meal plan must belong to the selected hotel.
+If hotel is Sierra, meal_plan must be null.
+Allowed hotels: {json.dumps(hotels, ensure_ascii=False)}
+Room types by hotel: {json.dumps(room_options, ensure_ascii=False)}
+Meal plans by hotel: {json.dumps(meal_options, ensure_ascii=False)}
+Guest message: {message}
+JSON:"""
+    try:
+        raw = llm.generate_response(prompt).strip()
+        match = re.search(r"\{.*\}", raw, flags=re.DOTALL)
+        if not match:
+            return {}
+        data = json.loads(match.group(0))
+        if not isinstance(data, dict):
+            return {}
+    except Exception:
+        return {}
 
-    language = detect_guest_language(llm, initial_message)
-    flow = new_points_flow(language=language)
+    extracted = {}
+    hotel = data.get("hotel")
+    if isinstance(hotel, str) and hotel in hotels:
+        extracted["hotel"] = hotel
+    effective_hotel = extracted.get("hotel", flow.get("hotel"))
 
-    return {
-        "flow": flow,
-        "language": language,
-        "question": _get_next_question(llm, flow),
-    }
+    room_type = data.get("room_type")
+    if effective_hotel and isinstance(room_type, str) and room_type in room_options.get(effective_hotel, []):
+        extracted["room_type"] = room_type
 
-
-def _get_next_question(llm, flow):
-    """Build the next question and translated options."""
-
-    field = get_missing_field(flow)
-
-    if field is None:
-        return None
-
-    if field == "nights":
-        options = []
+    if effective_hotel == "Sierra":
+        extracted["meal_plan"] = None
     else:
-        options = get_available_options(flow, field)
+        meal_plan = data.get("meal_plan")
+        if effective_hotel and isinstance(meal_plan, str) and meal_plan in meal_options.get(effective_hotel, []):
+            extracted["meal_plan"] = meal_plan
 
-    question, translated_options = _translate_question_and_options(
-        llm,
-        flow["language"],
-        field,
-        options,
-    )
-
-    if translated_options:
-        numbered_options = "\n".join(
-            f'{item["id"]}. {item["label"]}'
-            for item in translated_options
-        )
-        return f"{question}\n\n{numbered_options}"
-
-    return question
+    nights = data.get("nights")
+    if isinstance(nights, int) and not isinstance(nights, bool) and nights > 0:
+        extracted["nights"] = nights
+    return extracted
 
 
-def process_multilingual_points_answer(llm, flow, answer):
-    """Resolve one guest answer, update the flow, and return the next step."""
-
-    field = get_missing_field(flow)
-
-    if field is None:
-        return {
-            "accepted": False,
-            "complete": True,
-            "message": generate_guest_message(
-                llm,
-                flow["language"],
-                "This points calculation is already complete.",
-            ),
-        }
-
-    if field == "nights":
-        value = resolve_guest_answer(
-            llm=llm,
-            answer=answer,
-            field="nights",
-        )
-    else:
-        options = get_available_options(flow, field)
-        value = resolve_guest_answer(
-            llm=llm,
-            answer=answer,
-            field=field,
-            options=options,
-        )
-
-    if value is None:
-        if field == "nights":
-            message = (
-                "Please provide a valid positive whole number of nights."
-            )
-        else:
-            message = (
-                f"Please choose a valid {FIELD_LABELS[field]} "
-                "from the available options."
-            )
-
-        return {
-            "accepted": False,
-            "complete": False,
-            "message": generate_guest_message(
-                llm,
-                flow["language"],
-                message,
-            ),
-            "question": _get_next_question(llm, flow),
-        }
-
-    flow[field] = value
-    next_field = get_missing_field(flow)
-
-    if next_field is not None:
-        return {
-            "accepted": True,
-            "complete": False,
-            "next_field": next_field,
-            "question": _get_next_question(llm, flow),
-        }
-
+def _completed_result_message(llm, flow):
     result = get_points_result(flow)
 
     if result["hotel"] == "Sierra":
@@ -273,25 +220,87 @@ def process_multilingual_points_answer(llm, flow, answer):
             f"{result['nights']} nights."
         )
 
-    result_message = (
+    message = (
         f"Your estimated Award Points are {result['total_points']} points.\n\n"
-        f"{calculation_text}\n\n"
-        "For more information, contact the Savoy Club office. "
-        "From inside the hotel, call 8080. From outside, call "
-        "+20 69 360 2500. The office is available daily from "
-        "9:00 AM to 6:00 PM. Contact email: "
-        "SavoyClub@savoy-sharm.com."
+        f"{calculation_text}"
     )
+    return generate_guest_message(llm, flow["language"], message)
 
-    localized_result = generate_guest_message(
-        llm,
-        flow["language"],
-        result_message,
-    )
 
+
+def start_multilingual_points_flow(llm, initial_message):
+    """Start the calculator and fill any booking details explicitly included initially."""
+    language = detect_guest_language(llm, initial_message)
+    flow = new_points_flow(language=language)
+    flow.update(_extract_explicit_fields(llm, flow, initial_message))
+    if flow.get("hotel") == "Sierra":
+        flow["meal_plan"] = None
+    if get_missing_field(flow) is None:
+        return {
+            "flow": flow,
+            "language": language,
+            "question": None,
+            "complete": True,
+            "message": _completed_result_message(llm, flow),
+        }
     return {
-        "accepted": True,
-        "complete": True,
-        "result": result,
-        "message": localized_result,
+        "flow": flow,
+        "language": language,
+        "question": _get_next_question(llm, flow),
+        "complete": False,
     }
+
+def process_multilingual_points_answer(llm, flow, answer):
+    """Accept multiple explicitly stated fields, ask only for what remains missing."""
+    field = get_missing_field(flow)
+    if field is None:
+        return {
+            "accepted": False,
+            "complete": True,
+            "message": generate_guest_message(
+                llm, flow["language"], "This points calculation is already complete."
+            ),
+        }
+
+    extracted = _extract_explicit_fields(llm, flow, answer)
+    # Preserve existing values unless the guest clearly provides a valid replacement.
+    for key, value in extracted.items():
+        if value is not None or key == "meal_plan":
+            flow[key] = value
+    if flow.get("hotel") == "Sierra":
+        flow["meal_plan"] = None
+
+    # If the message didn't identify the field currently requested, use the existing resolver.
+    field = get_missing_field(flow)
+    if field is not None:
+        if field == "nights":
+            value = resolve_guest_answer(llm=llm, answer=answer, field="nights")
+        else:
+            options = get_available_options(flow, field)
+            value = resolve_guest_answer(llm=llm, answer=answer, field=field, options=options)
+        if value is not None:
+            flow[field] = value
+        elif get_missing_field(flow) == field:
+            if field == "nights":
+                message = "Please provide a valid positive whole number of nights."
+            else:
+                message = f"Please choose a valid {FIELD_LABELS[field]} from the available options."
+            return {
+                "accepted": False,
+                "complete": False,
+                "message": generate_guest_message(llm, flow["language"], message),
+                "question": _get_next_question(llm, flow),
+            }
+
+    next_field = get_missing_field(flow)
+    if next_field is not None:
+        return {
+            "accepted": True,
+            "complete": False,
+            "next_field": next_field,
+            "question": _get_next_question(llm, flow),
+        }
+
+    result = get_points_result(flow)
+    localized_result = _completed_result_message(llm, flow)
+    return {"accepted": True, "complete": True, "result": result, "message": localized_result}
