@@ -231,10 +231,7 @@ class GuestChatbot:
 
         if not results:
             return {
-                "answer": (
-                    "The available policy excerpts do not provide enough "
-                    "information to answer this question."
-                ),
+                "answer": "__SAVOY_POLICY_NOT_FOUND__",
                 "sources": [],
             }
 

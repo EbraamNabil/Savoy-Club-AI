@@ -898,7 +898,10 @@ def render_guest():
                         )
 
                         chat["points_flow"] = outcome["flow"]
-                        answer = outcome["question"]
+                        if outcome["complete"]:
+                            answer = outcome["message"]
+                        else:
+                            answer = outcome["question"]
                         sources = []
 
                     # Keep all other questions on the existing policy RAG path.
