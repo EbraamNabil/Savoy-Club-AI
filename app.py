@@ -11,6 +11,8 @@ from guest_mode.points_multilingual_flow import (
 )
 import re
 
+from staff_mode.authentication import render_staff_login, staff_logout
+
 
 
 POLICY_NOT_FOUND = """I’m sorry, but I couldn’t find the information you’re looking for. 😊
@@ -667,13 +669,14 @@ def render_home():
             unsafe_allow_html=True,
         )
 
-        st.button(
+        if st.button(
             "➜",
             use_container_width=True,
-            disabled=True,
-            key="staff_inactive",
-            help="Staff Mode is coming soon",
-        )
+            key="enter_staff",
+            help="Open Staff Mode",
+        ):
+            st.session_state.page = "staff"
+            st.rerun()
 
     st.markdown(
         """
@@ -958,9 +961,35 @@ def render_guest():
 
 
 # ---------------------------------------------------------
+# Staff page
+# ---------------------------------------------------------
+def render_staff():
+    """Render the authenticated staff workspace."""
+
+    if st.button("← Back to Home", key="staff_back_home"):
+        st.session_state.page = "home"
+        st.rerun()
+
+    if not render_staff_login():
+        return
+
+    st.title("SAVOY Club | Staff Mode")
+    st.success(f"Signed in as {st.session_state.staff_email}")
+
+    st.info("Staff Support Dashboard will be added in the next phase.")
+
+    st.button("Log out", on_click=staff_logout, key="staff_logout")
+
+
+# ---------------------------------------------------------
 # Application routing
 # ---------------------------------------------------------
 if st.session_state.page == "home":
     render_home()
-else:
+elif st.session_state.page == "guest":
     render_guest()
+elif st.session_state.page == "staff":
+    render_staff()
+else:
+    st.session_state.page = "home"
+    st.rerun()
