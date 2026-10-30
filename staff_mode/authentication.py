@@ -41,7 +41,7 @@ def render_staff_login():
     with st.form("staff_login_form"):
         email = st.text_input("Work Email").strip().lower()
         password = st.text_input("Password", type="password")
-        submitted = st.form_submit_button("Sign In", use_container_width=True)
+        submitted = st.form_submit_button("Sign In", type="primary", use_container_width=True)
 
     if submitted:
         attempts = st.session_state.get("login_attempts", 0)

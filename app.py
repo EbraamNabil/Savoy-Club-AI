@@ -439,6 +439,42 @@ st.markdown(
             font-size: 2.2rem;
         }
     }
+
+    /* SAVOY Gold Primary Buttons */
+    .stButton button[kind="primary"],
+    [data-testid="stFormSubmitButton"] button,
+    [data-testid="stForm"] button[kind="primary"] {
+        background: linear-gradient(115deg, #B98B3F, #F0D69A) !important;
+        color: #07172A !important;
+        -webkit-text-fill-color: #07172A !important;
+        border: 1px solid #F0D69A !important;
+        border-radius: 10px !important;
+        font-weight: 700 !important;
+    }
+
+    .stButton button[kind="primary"]:hover,
+    [data-testid="stFormSubmitButton"] button:hover {
+        background: linear-gradient(115deg, #D0A75C, #FFE7AE) !important;
+        color: #07172A !important;
+        -webkit-text-fill-color: #07172A !important;
+        border-color: #FFE7AE !important;
+        box-shadow: 0 0 18px rgba(217, 181, 109, 0.30) !important;
+    }
+
+    /* Staff Login Inputs */
+    [data-testid="stForm"] [data-testid="stTextInput"] input {
+        background: #0B2341 !important;
+        color: #F7F3EA !important;
+        -webkit-text-fill-color: #F7F3EA !important;
+        border: 1px solid #D9B56D !important;
+        border-radius: 9px !important;
+    }
+
+    [data-testid="stForm"] [data-testid="stTextInput"] input:focus {
+        border: 1px solid #F3DCA5 !important;
+        box-shadow: 0 0 0 1px #D9B56D !important;
+    }
+
     </style>
     """,
     unsafe_allow_html=True,
@@ -671,6 +707,7 @@ def render_home():
 
         if st.button(
             "➜",
+            type="primary",
             use_container_width=True,
             key="enter_staff",
             help="Open Staff Mode",
