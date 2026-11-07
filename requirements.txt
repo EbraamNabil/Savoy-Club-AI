@@ -8,3 +8,4 @@ sentence-transformers
 pypdf
 rank-bm25
 openai>=1.0.0
+supabase>=2.0.0,<3.0.0
