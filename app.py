@@ -482,6 +482,34 @@ st.markdown(
 )
 
 
+
+# ---------------------------------------------------------
+# SAVOY Staff Alerts - Dark Theme
+# ---------------------------------------------------------
+st.markdown(
+    """
+    <style>
+    [data-testid="stAlert"] {
+        background: #0B2341 !important;
+        border: 1px solid #D9B56D !important;
+        border-radius: 10px !important;
+    }
+
+    [data-testid="stAlert"] p,
+    [data-testid="stAlert"] div,
+    [data-testid="stAlert"] span {
+        color: #F7F3EA !important;
+    }
+
+    [data-testid="stAlert"] svg {
+        color: #D9B56D !important;
+        fill: #D9B56D !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # ---------------------------------------------------------
 # Session state
 # ---------------------------------------------------------
