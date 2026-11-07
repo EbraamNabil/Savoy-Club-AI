@@ -12,6 +12,7 @@ from guest_mode.points_multilingual_flow import (
 import re
 
 from staff_mode.authentication import render_staff_login, staff_logout
+from staff_mode.dashboard import render_staff_dashboard
 
 
 
@@ -1010,10 +1011,7 @@ def render_staff():
     if not render_staff_login():
         return
 
-    st.title("SAVOY Club | Staff Mode")
-    st.success(f"Signed in as {st.session_state.staff_email}")
-
-    st.info("Staff Support Dashboard will be added in the next phase.")
+    render_staff_dashboard()
 
     st.button("Log out", on_click=staff_logout, key="staff_logout")
 
