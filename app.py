@@ -510,6 +510,22 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+
+# SAVOY Alert Text - Black
+st.markdown(
+    """
+    <style>
+    [data-testid="stAlert"] p,
+    [data-testid="stAlert"] div,
+    [data-testid="stAlert"] span {
+        color: #000000 !important;
+        -webkit-text-fill-color: #000000 !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
+
 # ---------------------------------------------------------
 # Session state
 # ---------------------------------------------------------
