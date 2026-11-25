@@ -489,42 +489,36 @@ st.markdown(
 st.markdown(
     """
     <style>
-    [data-testid="stAlert"] {
-        background: #0B2341 !important;
+    /* SAVOY alerts: white background, black text */
+    [data-testid="stAlert"],
+    [data-testid="stAlertContainer"] {
+        background: #FFFFFF !important;
         border: 1px solid #D9B56D !important;
+        border-left: 5px solid #D9B56D !important;
         border-radius: 10px !important;
     }
 
     [data-testid="stAlert"] p,
     [data-testid="stAlert"] div,
-    [data-testid="stAlert"] span {
-        color: #F7F3EA !important;
-    }
-
-    [data-testid="stAlert"] svg {
-        color: #D9B56D !important;
-        fill: #D9B56D !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-
-
-# SAVOY Alert Text - Black
-st.markdown(
-    """
-    <style>
-    [data-testid="stAlert"] p,
-    [data-testid="stAlert"] div,
-    [data-testid="stAlert"] span {
+    [data-testid="stAlert"] span,
+    [data-testid="stAlert"] li,
+    [data-testid="stAlert"] strong,
+    [data-testid="stAlert"] a,
+    [data-testid="stAlert"] code {
         color: #000000 !important;
         -webkit-text-fill-color: #000000 !important;
     }
+
+    [data-testid="stAlert"] svg {
+        color: #0B2341 !important;
+        fill: #0B2341 !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
 )
+
+
 
 # ---------------------------------------------------------
 # Session state
