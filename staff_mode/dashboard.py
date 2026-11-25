@@ -171,11 +171,28 @@ def render_staff_dashboard():
         tickets = list_tickets(status=filter_status, limit=200)
 
     except Exception as error:
-        print(f"Ticket list retrieval failed: {error!r}")
-        st.error(
-            "Unable to load support tickets. "
-            "Please check the database connection and try again."
+        print(f"Ticket list retrieval failed: {type(error).__name__}: {error}")
+
+        st.error("Unable to load support tickets.")
+
+        # Temporary diagnostic information
+        error_message = str(error)[:500]
+        error_message = re.sub(
+            r"Bearer\s+\S+",
+            "Bearer [REDACTED]",
+            error_message,
+            flags=re.IGNORECASE
         )
+        error_message = re.sub(
+            r"(sb_secret_|eyJ)[A-Za-z0-9_.-]+",
+            "[REDACTED]",
+            error_message
+        )
+
+        with st.expander("Technical diagnostic details"):
+            st.write("Error type:", type(error).__name__)
+            st.code(error_message)
+
         return
 
     st.subheader("Support Tickets")
